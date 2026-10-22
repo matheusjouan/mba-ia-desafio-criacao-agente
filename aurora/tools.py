@@ -14,7 +14,7 @@ from typing import Literal
 
 from google.adk.tools import FunctionTool, ToolContext
 
-from . import repositorio
+from . import regulamento, repositorio
 from .config import CHAVE_APARTAMENTO, DADOS
 from .repositorio import DadoInvalido
 
@@ -179,6 +179,17 @@ def autorizar_visitante(nome: str, data: str, tool_context: ToolContext) -> dict
     }
 
 
+# --- Regulamento --------------------------------------------------------------
+
+
+def ler_capitulo(numero: int) -> dict:
+    """Lê um único capítulo do regulamento interno, pelo número (1 a 14)."""
+    capitulo = regulamento.capitulos().get(numero)
+    if capitulo is None:
+        return {"erro": f"Capítulo {numero} não existe. Use um número de 1 a 14."}
+    return {"capitulo": capitulo.titulo, "texto": capitulo.texto}
+
+
 # --- Callback ---------------------------------------------------------------
 
 _RESPOSTA_NEGADA_ADK = {"error": "This tool call is rejected."}
@@ -217,3 +228,5 @@ TOOLS_VISITANTES = [
     FunctionTool(listar_meus_visitantes),
     FunctionTool(autorizar_visitante, require_confirmation=True),
 ]
+
+TOOLS_REGULAMENTO = [FunctionTool(ler_capitulo)]

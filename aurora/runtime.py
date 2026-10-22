@@ -107,10 +107,16 @@ def mensagem_confirmacao(confirmacao_id: str, confirmado: bool) -> types.Content
 
 
 def texto_resposta(eventos: list[Event]) -> str:
-    """Junta o texto final dos agentes (sem raciocínio interno nem parciais)."""
+    """Junta o texto final dos agentes para o morador.
+
+    Ignora raciocínio interno, eventos parciais e o texto que acompanha uma
+    chamada de tool ou transferência (narração do tipo "vou encaminhar").
+    """
     textos = []
     for evento in eventos:
         if evento.author == "user" or evento.partial or not evento.content:
+            continue
+        if evento.get_function_calls():
             continue
         for parte in evento.content.parts or []:
             if parte.text and not parte.thought:

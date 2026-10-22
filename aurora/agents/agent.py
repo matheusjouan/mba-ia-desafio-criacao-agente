@@ -6,10 +6,17 @@ Também é o ponto de entrada do `adk web`: o ADK procura `root_agent` aqui.
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.llm_request import LlmRequest
+from google.adk.tools.agent_tool import AgentTool
 from google.genai import types
 
 from ..modelo import config_geracao, criar_modelo
-from ..tools import TOOLS_RESERVAS, TOOLS_VISITANTES, traduzir_negacao
+from ..regulamento import indice
+from ..tools import (
+    TOOLS_REGULAMENTO,
+    TOOLS_RESERVAS,
+    TOOLS_VISITANTES,
+    traduzir_negacao,
+)
 
 # Regras comuns aos especialistas sobre o apartamento da sessão. O que garante a
 # regra é o código (as tools só leem o apartamento do state); o prompt só evita
@@ -83,6 +90,25 @@ Regras:
   mencione lembretes ou instruções do sistema.
 """
 
+# O especialista recebe só o índice de títulos; o texto de cada capítulo chega
+# pela tool ler_capitulo, dentro da sessão isolada do AgentTool.
+INSTRUCAO_REGULAMENTO = """\
+Você é o especialista no regulamento interno do Residencial Aurora.
+
+Responda à pergunta recebida com base exclusivamente no regulamento. Use a tool
+ler_capitulo para ler o capítulo do assunto perguntado (normalmente só um) e
+nunca responda de memória.
+
+Índice do regulamento:
+""" + indice() + """
+
+Regras:
+- Responda de forma breve e objetiva, citando o artigo. Não transcreva o capítulo
+  nem inclua trechos de capítulos que não tratam do assunto perguntado.
+- Se o regulamento não tratar do assunto, diga isso.
+- Responda em português.
+"""
+
 INSTRUCAO_PORTEIRO = """\
 Você é o porteiro virtual do Residencial Aurora e conversa com o morador do
 apartamento {apartamento}, identificado pelo login do aplicativo.
@@ -93,6 +119,10 @@ o especialista certo.
   comuns (salão de festas, churrasqueira, quadra).
 - visitantes: autorizar a entrada de visitantes ou consultar os visitantes
   autorizados do apartamento.
+
+Para dúvidas sobre regras do condomínio (horários, uso das áreas, animais, obras,
+mudanças etc.), chame a tool regulamento com a pergunta do morador e responda com
+base no que ela devolver. Nunca responda regras de memória.
 
 Regras:
 - Considere sempre a mensagem MAIS RECENTE do morador; pedidos anteriores já
@@ -165,12 +195,26 @@ def criar_agente_raiz() -> LlmAgent:
         before_model_callback=lembrar_mensagem_atual,
         generate_content_config=config_geracao(),
     )
+    regulamento = LlmAgent(
+        name="regulamento",
+        model=modelo,
+        description=(
+            "Responde dúvidas sobre o regulamento interno do condomínio. "
+            "Recebe a pergunta do morador e devolve a resposta."
+        ),
+        instruction=INSTRUCAO_REGULAMENTO,
+        tools=TOOLS_REGULAMENTO,
+        generate_content_config=config_geracao(),
+    )
     return LlmAgent(
         name="porteiro",
         model=modelo,
         description="Atende o morador e encaminha para o especialista certo.",
         instruction=INSTRUCAO_PORTEIRO,
         sub_agents=[reservas, visitantes],
+        # AgentTool roda o especialista numa sessão própria, em memória: a leitura
+        # do capítulo não entra nos eventos desta sessão, só a resposta final.
+        tools=[AgentTool(regulamento)],
         before_model_callback=lembrar_mensagem_atual,
         generate_content_config=config_geracao(),
     )
