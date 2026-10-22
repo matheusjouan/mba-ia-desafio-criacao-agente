@@ -9,9 +9,9 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.tools.agent_tool import AgentTool
 from google.genai import types
 
-from ..modelo import config_geracao, criar_modelo
-from ..regulamento import indice
-from ..tools import (
+from aurora.modelo import config_geracao, criar_modelo
+from aurora.regulamento import indice
+from aurora.tools import (
     TOOLS_REGULAMENTO,
     TOOLS_RESERVAS,
     TOOLS_VISITANTES,

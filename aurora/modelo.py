@@ -12,7 +12,7 @@ from google.genai import types
 
 from . import config  # noqa: F401  (carrega o .env antes de ler as variáveis)
 
-MODELO_GEMINI_PADRAO = "gemini-2.5-flash"
+MODELO_GEMINI_PADRAO = "gemini-3.8-flash"
 MODELO_ANTHROPIC_PADRAO = "claude-haiku-5-5"
 
 
