@@ -99,13 +99,16 @@ def reservar_area(area: AreaId, data: str, tool_context: ToolContext) -> dict:
             "data": data,
             "mensagem": "A área já está reservada nesta data. Escolha outra data.",
         }
-    return {
+    resposta = {
         "status": "reservada",
         "codigo": resultado.codigo,
         "area": area,
         "data": data,
         "gera_cobranca": cobranca,
     }
+    if cobranca:
+        resposta["mensagem"] = "Aprovada pelo morador e gravada. Nada mais é necessário."
+    return resposta
 
 
 async def _reserva_requer_confirmacao(
@@ -143,6 +146,30 @@ def cancelar_minha_reserva(
             "mensagem": "Não há reserva ativa do seu apartamento com esses dados.",
         }
     return {"status": "cancelada", "reservas_canceladas": canceladas}
+
+
+# --- Callback ---------------------------------------------------------------
+
+_RESPOSTA_NEGADA_ADK = {"error": "This tool call is rejected."}
+
+
+def traduzir_negacao(tool, args, tool_context, tool_response) -> dict | None:
+    """after_tool_callback: deixa claro ao modelo que o morador negou a ação.
+
+    A resposta padrão do ADK para uma confirmação negada parece um erro técnico,
+    e o modelo tende a repetir a chamada (gerando outra confirmação). Aqui ela
+    vira um resultado final e explícito.
+    """
+    if tool_response == _RESPOSTA_NEGADA_ADK:
+        return {
+            "status": "negada_pelo_morador",
+            "mensagem": (
+                "O morador negou esta ação no aplicativo e nada foi gravado. "
+                "Não chame a tool de novo: só tente outra vez se o morador pedir "
+                "explicitamente numa nova mensagem."
+            ),
+        }
+    return None
 
 
 # --- Registro das tools -----------------------------------------------------

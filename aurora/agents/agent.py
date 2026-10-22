@@ -6,7 +6,7 @@ Também é o ponto de entrada do `adk web`: o ADK procura `root_agent` aqui.
 from google.adk.agents import LlmAgent
 
 from ..modelo import criar_modelo
-from ..tools import TOOLS_RESERVAS
+from ..tools import TOOLS_RESERVAS, traduzir_negacao
 
 INSTRUCAO_RESERVAS = """\
 Você é o especialista em reservas das áreas comuns do Residencial Aurora e atende
@@ -20,6 +20,10 @@ Regras:
 - Para reservar, chame reservar_area diretamente. Não peça confirmação na conversa:
   quando a área tem taxa, o próprio sistema envia o pedido de aprovação ao morador
   pelo aplicativo. Frases como "já confirmo por aqui" não substituem essa aprovação.
+- Quando reservar_area devolver status "reservada", a reserva já foi aprovada e
+  gravada: informe o código e encerre, sem mencionar aprovações pendentes.
+- Quando devolver status "negada_pelo_morador", diga que nada foi feito e não
+  chame a tool de novo.
 - Se uma data estiver ocupada ou indisponível, diga apenas que está indisponível.
   Nunca diga de quem é a reserva, nem cite códigos ou apartamentos de terceiros.
 - Cancelamento: só reservas do próprio apartamento. Se a tool não encontrar a
@@ -64,6 +68,7 @@ def criar_agente_raiz() -> LlmAgent:
         description="Reserva, cancela e consulta reservas das áreas comuns.",
         instruction=INSTRUCAO_RESERVAS,
         tools=TOOLS_RESERVAS,
+        after_tool_callback=traduzir_negacao,
     )
     return LlmAgent(
         name="porteiro",

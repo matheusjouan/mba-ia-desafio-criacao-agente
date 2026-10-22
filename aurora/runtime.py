@@ -52,15 +52,38 @@ async def obter_sessao(session_id: str) -> Session | None:
     )
 
 
+async def _rodar(session_id: str, mensagem: types.Content) -> list[Event]:
+    eventos = []
+    async for evento in _runner().run_async(
+        user_id=USER_ID, session_id=session_id, new_message=mensagem
+    ):
+        eventos.append(evento)
+    return eventos
+
+
 async def executar(session_id: str, mensagem: types.Content) -> list[Event]:
     """Roda o assistente com a mensagem e devolve os eventos gerados."""
     async with _travas[session_id]:
-        eventos = []
-        async for evento in _runner().run_async(
-            user_id=USER_ID, session_id=session_id, new_message=mensagem
-        ):
-            eventos.append(evento)
-        return eventos
+        return await _rodar(session_id, mensagem)
+
+
+async def responder_confirmacao(
+    session_id: str, confirmacao_id: str, confirmado: bool
+) -> list[Event] | None:
+    """Entrega ao ADK a resposta do morador a uma confirmação pendente.
+
+    Devolve None (e não executa nada) se o id não estiver pendente nesta
+    sessão: id inexistente, de outra sessão ou já respondido. A conferência e a
+    execução ficam sob a mesma trava da sessão.
+    """
+    async with _travas[session_id]:
+        sessao = await obter_sessao(session_id)
+        pendentes = {p["id"] for p in confirmacoes_pendentes(sessao)} if sessao else set()
+        if confirmacao_id not in pendentes:
+            return None
+        return await _rodar(
+            session_id, mensagem_confirmacao(confirmacao_id, confirmado)
+        )
 
 
 def mensagem_texto(texto: str) -> types.Content:

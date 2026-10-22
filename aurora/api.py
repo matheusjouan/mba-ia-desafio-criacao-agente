@@ -15,6 +15,7 @@ from .runtime import (
     executar,
     mensagem_texto,
     obter_sessao,
+    responder_confirmacao,
     texto_resposta,
 )
 
@@ -40,6 +41,11 @@ class SessaoCriada(BaseModel):
 
 class Mensagem(BaseModel):
     texto: str
+
+
+class RespostaConfirmacao(BaseModel):
+    id: str
+    confirmado: bool
 
 
 class ConfirmacaoPendente(BaseModel):
@@ -84,6 +90,20 @@ async def _responder(session_id: str, eventos) -> RespostaAssistente:
 async def post_mensagem(session_id: str, body: Mensagem) -> RespostaAssistente:
     await _sessao_ou_404(session_id)
     eventos = await executar(session_id, mensagem_texto(body.texto))
+    return await _responder(session_id, eventos)
+
+
+@app.post("/sessoes/{session_id}/confirmacoes", response_model=RespostaAssistente)
+async def post_confirmacao(
+    session_id: str, body: RespostaConfirmacao
+) -> RespostaAssistente:
+    await _sessao_ou_404(session_id)
+    eventos = await responder_confirmacao(session_id, body.id, body.confirmado)
+    if eventos is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Não existe confirmação pendente com esse id nesta sessão.",
+        )
     return await _responder(session_id, eventos)
 
 
