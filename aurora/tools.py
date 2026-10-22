@@ -148,6 +148,37 @@ def cancelar_minha_reserva(
     return {"status": "cancelada", "reservas_canceladas": canceladas}
 
 
+# --- Visitantes -------------------------------------------------------------
+
+
+def listar_meus_visitantes(tool_context: ToolContext) -> dict:
+    """Lista os visitantes autorizados do apartamento do morador desta conversa."""
+    apartamento = _apartamento(tool_context)
+    return {"visitantes": repositorio.visitantes_do_apartamento(apartamento)}
+
+
+def autorizar_visitante(nome: str, data: str, tool_context: ToolContext) -> dict:
+    """Autoriza a entrada de um visitante no prédio numa data (AAAA-MM-DD).
+
+    Libera acesso, então o sistema sempre pede a aprovação do morador pelo
+    aplicativo antes de gravar; basta chamar esta tool, sem pedir confirmação
+    na conversa.
+    """
+    apartamento = _apartamento(tool_context)
+    if not _confirmado(tool_context):
+        # Segunda trava da Garantia 1: sem aprovação registrada, nada é gravado.
+        return {"erro": "A autorização de visitante precisa da aprovação do morador."}
+    try:
+        visitante = repositorio.autorizar_visitante(apartamento, nome, data)
+    except DadoInvalido as e:
+        return {"erro": str(e)}
+    return {
+        "status": "autorizado",
+        **visitante,
+        "mensagem": "Aprovada pelo morador e gravada. Nada mais é necessário.",
+    }
+
+
 # --- Callback ---------------------------------------------------------------
 
 _RESPOSTA_NEGADA_ADK = {"error": "This tool call is rejected."}
@@ -180,4 +211,9 @@ TOOLS_RESERVAS = [
     FunctionTool(listar_minhas_reservas),
     FunctionTool(reservar_area, require_confirmation=_reserva_requer_confirmacao),
     FunctionTool(cancelar_minha_reserva),
+]
+
+TOOLS_VISITANTES = [
+    FunctionTool(listar_meus_visitantes),
+    FunctionTool(autorizar_visitante, require_confirmation=True),
 ]

@@ -8,6 +8,7 @@ import os
 
 from google.adk.models.anthropic_llm import AnthropicLlm
 from google.adk.models.base_llm import BaseLlm
+from google.genai import types
 
 from . import config  # noqa: F401  (carrega o .env antes de ler as variáveis)
 
@@ -26,6 +27,21 @@ def criar_modelo() -> str | BaseLlm:
         "Nenhuma chave de modelo configurada: preencha GOOGLE_API_KEY "
         "(ou ANTHROPIC_API_KEY) no arquivo .env."
     )
+
+
+def config_geracao() -> types.GenerateContentConfig | None:
+    """Configuração de geração dos agentes.
+
+    Com Claude, o raciocínio estendido fica desligado: o callback que lembra o
+    pedido atual altera a requisição a cada turno, e a API da Anthropic recusa
+    blocos de raciocínio reenviados com um histórico diferente do original.
+    Para rotear e chamar tools, o raciocínio estendido não faz falta.
+    """
+    if isinstance(criar_modelo(), AnthropicLlm):
+        return types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=0)
+        )
+    return None
 
 
 def descrever_modelo() -> str:
