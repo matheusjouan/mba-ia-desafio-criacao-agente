@@ -1,6 +1,5 @@
 """Caminhos e configurações do projeto."""
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,4 +13,6 @@ DB_CONDOMINIO = VAR / "condominio.db"
 DB_SESSOES = VAR / "sessoes.db"
 
 APP_NAME = "residencial_aurora"
-MODELO = os.getenv("AURORA_MODELO") or "gemini-2.5-flash"
+
+# Chave do state da sessão com o apartamento do morador (gravada só na criação).
+CHAVE_APARTAMENTO = "apartamento"

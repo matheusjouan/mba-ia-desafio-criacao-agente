@@ -9,7 +9,14 @@ from pydantic import BaseModel
 
 from . import db
 from . import repositorio
-from .runtime import criar_sessao, obter_sessao
+from .runtime import (
+    confirmacoes_pendentes,
+    criar_sessao,
+    executar,
+    mensagem_texto,
+    obter_sessao,
+    texto_resposta,
+)
 
 
 @asynccontextmanager
@@ -31,6 +38,21 @@ class SessaoCriada(BaseModel):
     session_id: str
 
 
+class Mensagem(BaseModel):
+    texto: str
+
+
+class ConfirmacaoPendente(BaseModel):
+    id: str
+    acao: str
+    detalhes: dict
+
+
+class RespostaAssistente(BaseModel):
+    resposta: str
+    confirmacoes_pendentes: list[ConfirmacaoPendente]
+
+
 async def _sessao_ou_404(session_id: str) -> Session:
     sessao = await obter_sessao(session_id)
     if sessao is None:
@@ -48,6 +70,21 @@ async def post_sessao(body: CriarSessao) -> SessaoCriada:
         raise HTTPException(status_code=422, detail="Apartamento inexistente.")
     sessao = await criar_sessao(apartamento)
     return SessaoCriada(session_id=sessao.id)
+
+
+async def _responder(session_id: str, eventos) -> RespostaAssistente:
+    sessao = await _sessao_ou_404(session_id)
+    return RespostaAssistente(
+        resposta=texto_resposta(eventos),
+        confirmacoes_pendentes=confirmacoes_pendentes(sessao),
+    )
+
+
+@app.post("/sessoes/{session_id}/mensagens", response_model=RespostaAssistente)
+async def post_mensagem(session_id: str, body: Mensagem) -> RespostaAssistente:
+    await _sessao_ou_404(session_id)
+    eventos = await executar(session_id, mensagem_texto(body.texto))
+    return await _responder(session_id, eventos)
 
 
 @app.get("/sessoes/{session_id}/eventos")
